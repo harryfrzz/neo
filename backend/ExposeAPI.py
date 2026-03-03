@@ -3,14 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from LLMInference import LLMInference
 from IngestAudio import AudioIngestor
-from EmbedData import EmbeddingPipeline, DocumentIngestor
+from IngestDocs import DocumentIngestor
 from VectorStore import VectorStore
 import numpy as np
 import ollama
 
 app = FastAPI()
 audio_ingestor = AudioIngestor()
-embedding_pipeline = EmbeddingPipeline()
 doc_ingestor = DocumentIngestor()
 vector_store = VectorStore()
 
@@ -134,29 +133,36 @@ async def generate_response(request: QueryRequest):
     return {"response": response_text}
 
 @app.post("/api/audio/digest")
-async def audio_digest(file : UploadFile = File(...)):
-    file_location = f"temp_{file.filename}"
+async def audio_digest(file: UploadFile = File(...), embedding_model: str = ...):
+    import os
+    from EmbedData import EmbeddingPipeline
+
+    if not file.filename:
+        return {"status": "error", "message": "No filename provided"}
+
+    filename = file.filename
+    file_location = f"temp_{filename}"
 
     with open(file_location, "wb") as f:
         content = await file.read()
         f.write(content)
-    
-    transcribe_result = audio_ingestor.transcribe(file_location)
 
-    prompt = f"""
+    try:
+        transcribe_result = audio_ingestor.transcribe(file_location)
+        text = str(transcribe_result["text"])
 
-    Summarize this file in bullet points
-    {transcribe_result["text"]}
+        prompt = f"Summarize this file in bullet points\n{text}"
+        summary = inference.generate(prompt=prompt)
 
+        # Embed transcription and store in vector store
+        embedding_pipeline = EmbeddingPipeline(embedding_model=embedding_model)
+        chunks, embeddings = embedding_pipeline.process_document(text, filename)
+        if len(chunks) > 0:
+            vector_store.add_embeddings(embeddings, chunks)
 
-    """
-
-    summary = inference.generate(prompt=prompt)
-
-    return{
-        "transcribe" : transcribe_result["text"],
-        "summary" : summary
-    }
+        return {"transcribe": text, "summary": summary}
+    finally:
+        os.remove(file_location)
 
 
 @app.get("/api/whisper/models")
@@ -241,53 +247,39 @@ async def delete_whisper_model(request: WhisperDeleteRequest):
         return {"status": "error", "message": str(e)}
 
 
-# RAG & Vector Store Endpoints
-
-class IngestDocumentRequest(BaseModel):
-    embedding_model: str = "nomic-embed-text"
-
-class RAGQueryRequest(BaseModel):
-    query: str
-    k: int = 5  # Number of similar documents to retrieve
-    max_tokens: int = 256
-    temperature: float = 0.7
-
-class RAGQueryResponse(BaseModel):
-    response: str
-    sources: list
-
 @app.post("/api/documents/ingest")
-async def ingest_document(file: UploadFile = File(...), embedding_model: str = "nomic-embed-text"):
-    """Ingest a document, generate embeddings, and store in FAISS."""
+async def ingest_document(file: UploadFile = File(...), embedding_model: str = ...):
     try:
+        from EmbedData import EmbeddingPipeline
         import tempfile
         import os
         
-        # Update embedding pipeline model
-        embedding_pipeline.embedding_model = embedding_model
+        if not file.filename:
+            return {"status": "error", "message": "No filename provided"}
         
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp:
+        filename = file.filename
+        embedding_pipeline = EmbeddingPipeline(embedding_model=embedding_model)
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=filename) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
         
         try:
-            # Extract text based on file type
             text = ""
-            if file.filename.lower().endswith(('.txt', '.md')):
+            if filename.lower().endswith(('.txt', '.md')):
                 with open(tmp_path, 'r') as f:
                     text = f.read()
-            elif file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+            elif filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                 text = doc_ingestor.perform_ocr(tmp_path)
             else:
-                return {"status": "error", "message": f"Unsupported file type: {file.filename}"}
+                return {"status": "error", "message": f"Unsupported file type: {filename}"}
             
             if not text.strip():
                 return {"status": "error", "message": "No text extracted from document"}
             
             # Process document: chunk and embed
-            chunks, embeddings = embedding_pipeline.process_document(text, file.filename)
+            chunks, embeddings = embedding_pipeline.process_document(text, filename)
             
             if len(chunks) == 0:
                 return {"status": "error", "message": "No chunks created from document"}
@@ -297,7 +289,7 @@ async def ingest_document(file: UploadFile = File(...), embedding_model: str = "
             
             return {
                 "status": "success",
-                "message": f"Document '{file.filename}' ingested successfully",
+                "message": f"Document '{filename}' ingested successfully",
                 "chunks_created": len(chunks),
                 "doc_id": chunks[0]['doc_id'] if chunks else None
             }
@@ -306,102 +298,3 @@ async def ingest_document(file: UploadFile = File(...), embedding_model: str = "
     
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-@app.post("/api/query/rag", response_model=RAGQueryResponse)
-async def query_rag(request: RAGQueryRequest):
-    """Query using RAG: retrieve relevant documents and augment LLM prompt."""
-    try:
-        if inference.llm_name is None:
-            return {"response": "No LLM model loaded. Please load a model first.", "sources": []}
-        
-        # Generate embedding for query
-        response = ollama.embeddings(
-            model="nomic-embed-text",
-            prompt=request.query
-        )
-        query_embedding = np.array(response.get("embedding"), dtype=np.float32)
-        
-        # Search vector store
-        results = vector_store.search(query_embedding, k=request.k)
-        
-        if not results:
-            # No relevant documents found, generate response without context
-            response_text = inference.generate(
-                prompt=request.query,
-                max_tokens=request.max_tokens,
-                temperature=request.temperature
-            )
-            return {"response": response_text, "sources": []}
-        
-        # Build context from retrieved documents
-        context = "\n\n".join([f"[{r['source']}]\n{r['text']}" for r in results])
-        
-        # Augment prompt with context
-        augmented_prompt = f"""Using the following context, answer the question:
-
-CONTEXT:
-{context}
-
-QUESTION:
-{request.query}
-
-ANSWER:"""
-        
-        # Generate response with augmented prompt
-        response_text = inference.generate(
-            prompt=augmented_prompt,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature
-        )
-        
-        # Prepare sources metadata
-        sources = [
-            {
-                "source": r['source'],
-                "chunk_id": r['chunk_id'],
-                "similarity_score": r['score']
-            }
-            for r in results
-        ]
-        
-        return {"response": response_text, "sources": sources}
-    
-    except Exception as e:
-        return {"response": f"Error during RAG query: {str(e)}", "sources": []}
-
-@app.get("/api/documents/list")
-async def list_documents():
-    """List all ingested documents."""
-    try:
-        documents = vector_store.list_documents()
-        stats = vector_store.get_stats()
-        return {
-            "documents": documents,
-            "stats": stats
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.post("/api/documents/delete")
-async def delete_document(doc_id: str):
-    """Delete a document and all its embeddings from the vector store."""
-    try:
-        deleted_count = vector_store.delete_by_document(doc_id)
-        if deleted_count == 0:
-            return {"status": "not_found", "message": f"Document {doc_id} not found"}
-        return {
-            "status": "success",
-            "message": f"Document deleted",
-            "chunks_deleted": deleted_count
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-@app.get("/api/vector-store/stats")
-async def get_vector_store_stats():
-    """Get vector store statistics."""
-    try:
-        stats = vector_store.get_stats()
-        return stats
-    except Exception as e:
-        return {"error": str(e)}
