@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu, Settings } from "lucide-react";
 
 import Sidebar from "./components/Sidebar";

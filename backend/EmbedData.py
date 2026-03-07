@@ -21,12 +21,6 @@ class EmbeddingPipeline:
         category: str = "video_transcript",
         max_chars: int = 500,
     ) -> List[Dict]:
-        """
-        Group Whisper transcript segments into chunks that fit within max_chars,
-        preserving start_time / end_time on every chunk.
-
-        Each Whisper segment has at minimum: {"start": float, "end": float, "text": str}.
-        """
         chunks = []
         doc_id = str(uuid.uuid4())
         chunk_num = 0

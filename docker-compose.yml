@@ -14,7 +14,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        REPO: https://github.com/harryfrzzi/neo.git
+        REPO: https://github.com/harryfrzz/neo.git
         BRANCH: main
     container_name: neo-backend
     volumes:
@@ -33,7 +33,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        REPO: https://github.com/harryfrzzi/neo.git
+        REPO: https://github.com/harryfrzz/neo.git
         BRANCH: main
         # Points the browser at the host's port 8000 — works for local use.
         # Override with the server's public URL when deploying remotely.

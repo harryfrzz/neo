@@ -1,36 +1,15 @@
-"""
-Database.py — SQLite-backed storage for Neo Chat.
-
-Uses Python's built-in sqlite3 module — zero extra dependencies.
-The database file lives at backend/data/neo_chat.db and is created
-automatically on first run.
-
-Tables:
-  chat_sessions   — one row per conversation session
-  messages        — all chat messages per session
-  uploaded_files  — metadata for every ingested file per session
-"""
-
 import os
 import sqlite3
 import threading
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
-# ---------------------------------------------------------------------------
-# DB path — stored alongside the FAISS data files
-# ---------------------------------------------------------------------------
-
 _DB_DIR  = os.path.join(os.path.dirname(__file__), "data")
 _DB_PATH = os.path.join(_DB_DIR, "neo_chat.db")
-
-# sqlite3 connections are not thread-safe when shared, so we give each thread
-# its own connection via threading.local().
 _local = threading.local()
 
 
 def _get_conn() -> sqlite3.Connection:
-    """Return a per-thread sqlite3 connection, creating it if needed."""
     if not hasattr(_local, "conn") or _local.conn is None:
         os.makedirs(_DB_DIR, exist_ok=True)
         conn = sqlite3.connect(_DB_PATH, check_same_thread=False)
@@ -81,7 +60,6 @@ CREATE INDEX IF NOT EXISTS idx_files_session         ON uploaded_files(session_i
 
 
 def init_db():
-    """Create tables if they do not exist. Safe to call multiple times."""
     try:
         conn = _get_conn()
         conn.executescript(_SCHEMA_SQL)

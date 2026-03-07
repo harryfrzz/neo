@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { marked } from "marked";
 import ScrambledText from "./ScrambledText";
 import { Mic, Image as ImageIcon, Video, FileText, Cpu } from "lucide-react";

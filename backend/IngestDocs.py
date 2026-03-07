@@ -27,7 +27,6 @@ class DocumentIngestor:
                     text = response.get("response", "") if isinstance(response, dict) else getattr(response, "response", "")
                     if text.strip():
                         return text
-                    # Model returned empty — fall through to pytesseract
                     print(f"[OCR] '{model}' returned {len(text)} chars (whitespace only), falling back to pytesseract.")
                 except Exception as e:
                     print(f"[OCR] Ollama OCR failed ({e}), falling back to pytesseract.")

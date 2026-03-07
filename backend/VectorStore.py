@@ -11,7 +11,7 @@ class VectorStore:
         self.metadata_path = metadata_path
         self.index: faiss.IndexFlatL2
         self.metadata: List[Dict] = []
-        self.dimension: int = 0  # inferred from first add_embeddings call or loaded index
+        self.dimension: int = 0
 
         os.makedirs(os.path.dirname(self.index_path) or ".", exist_ok=True)
         self._load()
@@ -30,8 +30,6 @@ class VectorStore:
         self._create_index()
 
     def _create_index(self):
-        # Dimension is unknown until the first batch of embeddings arrives.
-        # Use a sentinel 1-dim index; it will be replaced on the first add_embeddings call.
         self.index = faiss.IndexFlatL2(1)
         self.dimension = 0
         self.metadata = []
@@ -51,7 +49,6 @@ class VectorStore:
         incoming_dim = embeddings.shape[1]
 
         if self.dimension == 0:
-            # First batch — initialise index with the actual embedding dimension.
             self.dimension = incoming_dim
             self.index = faiss.IndexFlatL2(self.dimension)
         elif incoming_dim != self.dimension:
@@ -70,14 +67,9 @@ class VectorStore:
         print(f"Added {len(documents)} embeddings. Total vectors: {self.index.ntotal}")
 
     def has_source(self, filename: str) -> bool:
-        """Return True if any vector in the store was ingested from *filename*."""
         return any(m.get("source") == filename for m in self.metadata)
 
     def remove_source(self, filename: str) -> int:
-        """
-        Remove all vectors associated with *filename* from the text index.
-        Returns the number of vectors removed.
-        """
         keep = [m for m in self.metadata if m.get("source") != filename]
         removed = len(self.metadata) - len(keep)
         if removed == 0:
