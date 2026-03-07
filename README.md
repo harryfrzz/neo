@@ -5,6 +5,7 @@ Neo is a self-hostable RAG and LLM inference platform. Run it locally, keep your
 > [!WARNING]
 > Neo is under active development. You may run into bugs, rough edges, or breaking changes along the way.
 
+---
 
 ## Getting Started
 
@@ -57,6 +58,7 @@ System dependencies also needed: `ffmpeg` and `tesseract-ocr`
 npm install
 npm run dev
 ```
+---
 
 ## What You Can Do
 
