@@ -1,4 +1,6 @@
-# Neo
+<div align="left">
+<img src="https://github.com/user-attachments/assets/41166197-dff9-4859-acea-1e15337e9607" width="300"/>
+</div>
 
 Neo is a self-hostable RAG and LLM inference platform. Run it locally, keep your data private, and chat with your files using any model you want.
 
