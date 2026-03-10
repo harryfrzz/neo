@@ -1,6 +1,5 @@
 <div align="left">
-<img width="300" alt="logo-with-border" src="https://github.com/user-attachments/assets/64b98e4b-dd7a-4670-80a4-c157f8264d84" />
-
+  <img width="4096"alt="neo_chat" src="https://github.com/user-attachments/assets/ecbf112a-0f06-44eb-b5cc-c0174d2e9b29" />
 </div>
 
 Neo is a self-hostable RAG and LLM inference platform. Run it locally, keep your data private, and chat with your files using any model you want.
