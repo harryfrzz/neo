@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import { Paperclip, FolderOpen, ArrowUp, X, StopCircle, Music, Image, FileText, File, Video } from "lucide-react";
+import { Paperclip, FolderOpen, ArrowUp, X, StopCircle, Music, Image, FileText, File, Video, AlertCircle } from "lucide-react";
 
 
 export type FileCategory = "audio" | "image" | "text" | "pdf" | "video" | "unknown";
@@ -24,6 +24,8 @@ interface InputAreaProps {
   isStreaming: boolean;
   onStopStreaming: () => void;
   onFolderIngest?: (files: File[]) => void;
+  hasModel: boolean;
+  onOpenModels: () => void;
 }
 
 const AUDIO_EXTS = new Set([".mp3", ".wav", ".m4a", ".ogg", ".flac"]);
@@ -75,6 +77,8 @@ export default function InputArea({
   isStreaming,
   onStopStreaming,
   onFolderIngest,
+  hasModel,
+  onOpenModels,
 }: InputAreaProps) {
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
   const fileInputRef   = useRef<HTMLInputElement>(null);
@@ -143,11 +147,26 @@ export default function InputArea({
     setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
-  const canSend = (message.trim().length > 0 || attachedFiles.length > 0) && !isStreaming;
+  const canSend = (message.trim().length > 0 || attachedFiles.length > 0) && !isStreaming && hasModel;
 
   return (
     <div className="w-full pb-8 pt-2 px-4 sm:px-0 z-10">
       <div className="max-w-3xl mx-auto relative flex flex-col gap-3">
+
+        {!hasModel && !isStreaming && (
+          <div className="flex justify-center animate-in fade-in duration-300">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-amber-500/20 bg-amber-500/5 backdrop-blur-xl text-amber-400/70">
+              <AlertCircle size={11} className="shrink-0" />
+              <span>No model connected —</span>
+              <button
+                onClick={onOpenModels}
+                className="underline underline-offset-2 hover:text-amber-300 transition-colors"
+              >
+                Connect a model
+              </button>
+            </div>
+          </div>
+        )}
 
         {attachedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 px-2">
@@ -228,8 +247,8 @@ export default function InputArea({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isStreaming}
-            placeholder={isStreaming ? "Generating..." : "Type your message..."}
+            disabled={isStreaming || !hasModel}
+            placeholder={isStreaming ? "Generating..." : !hasModel ? "Connect a model to start chatting..." : "Type your message..."}
             className="flex-1 max-h-48 min-h-[44px] bg-transparent border-none text-foreground text-[15px] px-3 py-3 mx-1 resize-none focus:outline-none focus:ring-0 leading-relaxed disabled:opacity-60 disabled:cursor-not-allowed"
             rows={1}
           />

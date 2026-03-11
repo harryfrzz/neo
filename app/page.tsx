@@ -687,6 +687,8 @@ export default function Home() {
           isStreaming={isStreaming}
           onStopStreaming={handleStopStreaming}
           onFolderIngest={handleFolderIngest}
+          hasModel={Object.values(slots).some(Boolean)}
+          onOpenModels={() => setIsModelSidebarOpen(true)}
         />
       </div>
 
