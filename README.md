@@ -81,6 +81,7 @@ Supported file types:
 
 You can also drag in an entire folder and Neo will ingest everything inside it.
 
+![Neo Chat Interface](Screenshots/Screenshot%202026-03-10%20at%2011.04.09%20PM.png)
 
 ## Under Development
 
